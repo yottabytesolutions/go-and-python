@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "aiohttp-api"
+version = "0.1.0"
+description = "Testbed of a reasonably performant python api"
+authors = ["Jeroen <jeroen@yottabyte.io>"]
+readme = "README.md"
+packages = [{include = "aiohttp_api"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+aiohttp = "^3.8.4"
+aiohttp-remotes = "^1.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

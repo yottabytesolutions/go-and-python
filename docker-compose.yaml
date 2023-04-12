@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  app_python:
+    build:
+      context: app_go
+    ports:
+      - "8123:8123"
+
+  app_go:
+    build:
+        context: app
+    ports:
+      - "8124:8123"
+
+  upstream_service_one_go:
+    build:
+      context: upstream_service_go
+
+  upstream_service_two_go:
+    build:
+      context: upstream_service_go
+
+  upstream_service_one_python:
+      build:
+        context: upstream_service
+
+  upstream_service_two_python:
+    build:
+      context: upstream_service
+
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - app_python
+      - app_go
+      - upstream_service_one_go
+      - upstream_service_two_go
+      - upstream_service_one_python
+      - upstream_service_two_python
