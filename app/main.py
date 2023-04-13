@@ -1,74 +1,39 @@
 import asyncio
+from typing import Dict, List
+import httpx
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import uvicorn
 
-import aiohttp
-from aiohttp import web
-from aiohttp_remotes import setup as setup_remotes
-from aiohttp_remotes import XForwardedRelaxed
+app = FastAPI()
 
-SERVICE_ONE_URL = "http://upstream_service_one_python:8080/info"
-SERVICE_TWO_URL = "http://upstream_service_two_python:8080/info"
+service_one_url = "http://upstream_service_one_python:8080/info"
+service_two_url = "http://upstream_service_two_python:8080/info"
 
-
-class HttpException(Exception):
-    pass
-
-
-async def fetch(session, url):
-    async with session.get(url) as response:
-        if response.status != 200:
-            raise HttpException(f"Error {response.status}: {await response.text()}")
-        return await response.json()
+http_client = httpx.AsyncClient(
+    timeout=5.0,
+    limits=httpx.Limits(max_connections=2000, max_keepalive_connections=10),
+)
 
 
-async def fetch_with_retry(session, url, retries=2, backoff_factor=2):
-    for i in range(retries + 1):
-        try:
-            return await fetch(session, url)
-        except Exception as e:
-            if i < retries:
-                await asyncio.sleep(backoff_factor ** i)
-            else:
-                return {"error": str(e)}
+class InfoResponse(BaseModel):
+    random_string: str
 
 
-async def hello(request):
-    name = request.match_info.get('name', "World")
-    response = {"hello": name}
-    upstream_responses = []
-
-    async with aiohttp.ClientSession() as session:
-        urls = [SERVICE_ONE_URL, SERVICE_TWO_URL]
-
-        tasks = [fetch_with_retry(session, url) for url in urls]
-        results = await asyncio.gather(*tasks)
-
-        for result in results:
-            upstream_responses.append(result)
-
-    response.update({"upstream_responses": upstream_responses})
-    return web.json_response(response)
+async def fetch_info(url: str) -> InfoResponse:
+    try:
+        response = await http_client.get(url)
+        response.raise_for_status()
+        return InfoResponse(**response.json())
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=str(e))
 
 
-async def health(ignored):
-    return web.json_response({"status": "OK"})
+@app.get("/{name}", response_model=Dict[str, List | str])
+async def hello(name: str) -> Dict[str, List | str]:
+    results = await asyncio.gather(fetch_info(service_one_url), fetch_info(service_two_url))
+    return {"hello": name, "result": results}
 
 
-app = web.Application()
-app.router.add_get('/{name}', hello)
-app.router.add_get('/health', health)
-
-
-async def init_app(application):
-    await setup_remotes(
-        application,
-        XForwardedRelaxed(num=1)  # Rate limiting: 100 requests per 60 seconds
-    )
-
-    # Alternatively, use XForwardedStrict if you want to enforce the presence of X-Forwarded-* headers.
-    # setup_remotes(app, XForwardedStrict(rate=100, period=60))
-    application['config'] = {'rate_limit': 100}
-
-
-if __name__ == '__main__':
-    asyncio.run(init_app(app))
-    web.run_app(app, host='0.0.0.0', port=8123)
+if __name__ == "__main__":
+    uvicorn.run("main:app", workers=20, host="0.0.0.0", port=8123, log_level="error")

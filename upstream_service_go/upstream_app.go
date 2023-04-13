@@ -1,36 +1,40 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"math/rand"
 	"net/http"
 	"strings"
 )
 
+const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+var alphabetSize = len(letters)
+
 func randomString(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	sb := strings.Builder{}
 	sb.Grow(n)
 
 	for i := 0; i < n; i++ {
-		sb.WriteByte(letters[rand.Intn(len(letters))])
+		sb.WriteByte(letters[rand.Intn(alphabetSize)])
 	}
 
 	return sb.String()
 }
 
 func info(c *gin.Context) {
-	//if rand.Float32() < 0.1 {
-	//	c.String(http.StatusInternalServerError, "Internal Server Error")
-	//	return
-	//}
-
 	randomStr := randomString(50)
 	c.JSON(http.StatusOK, gin.H{"random_string": randomStr})
 }
 
 func main() {
-	r := gin.Default()
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(gin.Recovery())
 	r.GET("/info", info)
-	r.Run("0.0.0.0:8080")
+	err := r.Run("0.0.0.0:8080")
+	if err != nil {
+		fmt.Println("Error starting upstream service: ", err)
+	}
 }

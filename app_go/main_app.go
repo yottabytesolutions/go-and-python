@@ -19,10 +19,19 @@ type InfoResponse struct {
 	RandomString string `json:"random_string"`
 }
 
+var httpClient = &http.Client{
+	Transport: &http.Transport{
+		MaxIdleConnsPerHost: 10,
+		MaxConnsPerHost:     5000,
+		DisableKeepAlives:   true,
+		DisableCompression:  true,
+	},
+}
+
 func fetchInfo(url string, ch chan InfoResponse, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		fmt.Println("Error fetching info:", err)
 		return
@@ -57,9 +66,11 @@ func hello(c *gin.Context) {
 	wg.Wait()
 	close(ch)
 
-	infoResponses := make([]InfoResponse, 0)
+	infoResponses := make([]InfoResponse, 2)
+	i := 0
 	for info := range ch {
-		infoResponses = append(infoResponses, info)
+		infoResponses[i] = info
+		i++
 	}
 
 	c.JSON(
@@ -71,10 +82,10 @@ func hello(c *gin.Context) {
 }
 
 func main() {
-	r := gin.Default()
-
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(gin.Recovery())
 	r.GET("/:name", hello)
-
 	err := r.Run("0.0.0.0:8123")
 	if err != nil {
 		fmt.Println("Error starting server:", err)

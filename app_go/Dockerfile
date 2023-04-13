@@ -6,4 +6,5 @@ COPY . /app/
 RUN go mod download
 RUN go build -o main_app
 
+ENV GIN_MODE=release
 CMD ["/app/main_app"]

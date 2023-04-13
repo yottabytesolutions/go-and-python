@@ -1,13 +1,13 @@
 version: "3.9"
 
 services:
-  app_python:
+  app_go:
     build:
       context: app_go
     ports:
       - "8123:8123"
 
-  app_go:
+  app_python:
     build:
         context: app
     ports:

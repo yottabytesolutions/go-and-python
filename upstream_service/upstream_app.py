@@ -1,21 +1,20 @@
 import random
 import string
+from fastapi import FastAPI
+import uvicorn
 
 STRING_DIGITS = string.ascii_letters + string.digits
-
-from aiohttp import web
-
-
-async def info(request):
-    if random.random() > 1:
-        return "Internal Server Error", 500
-
-    random_string = ''.join(random.choices(STRING_DIGITS, k=50))
-    return web.json_response({"random_string": random_string})
+app = FastAPI()
 
 
-app = web.Application()
-app.router.add_get('/info', info)
+def generate_random_string(length: int) -> str:
+    return "".join(random.choices(string.ascii_letters, k=length))
 
-if __name__ == '__main__':
-    web.run_app(app, host='0.0.0.0', port=8080)
+
+@app.get("/info")
+async def info() -> dict:
+    return {"random_string": (generate_random_string(50))}
+
+
+if __name__ == "__main__":
+    uvicorn.run("upstream_app:app", workers=20, host="0.0.0.0", port=8080, log_level="error")
